@@ -13,10 +13,6 @@ import xr "../thirdparty/openxr"
 import sdl "vendor:sdl3"
 import vk "vendor:vulkan"
 
-when ODIN_OS == .Windows {
-	@(require) foreign import "system:Advapi32.lib"
-}
-
 App_Name :: "OpenXR + no_gfx"
 Frames_In_Flight :: 2
 

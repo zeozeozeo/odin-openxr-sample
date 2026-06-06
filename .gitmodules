@@ -1,0 +1,6 @@
+[submodule "thirdparty/no_gfx"]
+	path = thirdparty/no_gfx
+	url = https://github.com/LeonardoTemperanza/no_gfx_api.git
+[submodule "thirdparty/openxr"]
+	path = thirdparty/openxr
+	url = https://github.com/zeozeozeo/odin-openxr.git

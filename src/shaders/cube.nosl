@@ -1,0 +1,48 @@
+Vert_Data :: struct
+{
+    positions: []vec4,
+    normals: []vec4,
+    model_to_world: mat4,
+    model_to_world_normal: mat4,
+    world_to_view: mat4,
+    view_to_proj: mat4,
+    camera_world_pos: vec4,
+}
+
+Vert_Output :: struct
+{
+    pos: vec4 @position,
+    world_normal: vec4 @io(0),
+    world_pos: vec4 @io(1),
+    camera_world_pos: vec4 @io(2),
+}
+
+vert :: #vertex (vert_id: uint @vert_id, data: ^Vert_Data @data) -> Vert_Output
+{
+    local_pos := vec4(data.positions[vert_id].xyz, 1.0);
+    world_pos := data.model_to_world * local_pos;
+    clip_pos := data.view_to_proj * (data.world_to_view * world_pos);
+    clip_pos.y = 0.0 - clip_pos.y;
+
+    out: Vert_Output;
+    out.pos = clip_pos;
+    out.world_normal = data.model_to_world_normal * data.normals[vert_id];
+    out.world_pos = world_pos;
+    out.camera_world_pos = data.camera_world_pos;
+    return out;
+}
+
+frag :: #fragment (input: Vert_Output) -> vec4 @io(0)
+{
+    normal := normalize(input.world_normal.xyz);
+    view_dir := normalize(input.camera_world_pos.xyz - input.world_pos.xyz);
+    light_dir := normalize(vec3(0.35, 0.8, 0.45));
+    half_dir := normalize(light_dir + view_dir);
+
+    base_color := vec3(0.22, 0.52, 0.95);
+    ambient := base_color * 0.12;
+    diffuse := base_color * max(dot(normal, light_dir), 0.0);
+    specular := vec3(1.0, 0.92, 0.72) * pow(max(dot(normal, half_dir), 0.0), 48.0);
+
+    return vec4(ambient + diffuse + specular, 1.0);
+}

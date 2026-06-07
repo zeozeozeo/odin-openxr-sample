@@ -1,0 +1,82 @@
+Sky_Data :: struct
+{
+    positions: []vec4,
+    world_to_view: mat4,
+    view_to_proj: mat4,
+    sun_direction: vec4,
+}
+
+Sky_Frag_Data :: struct
+{
+    sky_texture: texture_id,
+    sky_sampler: sampler_id,
+}
+
+Sky_Out :: struct
+{
+    pos: vec4 @position,
+    dir: vec3 @io(0),
+    sun_direction: vec3 @io(1),
+}
+
+vert :: #vertex (vert_id: uint @vert_id, data: ^Sky_Data @data) -> Sky_Out
+{
+    dir := normalize(data.positions[vert_id].xyz);
+    view_pos := data.world_to_view * vec4(dir * 80.0, 1.0);
+    clip_pos := data.view_to_proj * view_pos;
+    clip_pos.y = 0.0 - clip_pos.y;
+
+    out: Sky_Out;
+    out.pos = clip_pos;
+    out.dir = dir;
+    out.sun_direction = data.sun_direction.xyz;
+    return out;
+}
+
+frag :: #fragment (input: Sky_Out, data: ^Sky_Frag_Data @data) -> vec4 @io(0)
+{
+    dir := normalize(input.dir);
+    ad := abs(dir);
+    face_col: float = 1.0;
+    face_row: float = 1.0;
+    uv: vec2;
+
+    if ad.x >= ad.y && ad.x >= ad.z {
+        if dir.x > 0.0 {
+            face_col = 2.0;
+            uv = vec2(-dir.z, dir.y) / ad.x;
+        } else {
+            face_col = 0.0;
+            uv = vec2(dir.z, dir.y) / ad.x;
+        }
+    } else if ad.y >= ad.x && ad.y >= ad.z {
+        face_col = 1.0;
+        if dir.y > 0.0 {
+            face_row = 0.0;
+            uv = vec2(dir.x, -dir.z) / ad.y;
+        } else {
+            face_row = 2.0;
+            uv = vec2(dir.x, dir.z) / ad.y;
+        }
+    } else {
+        if dir.z > 0.0 {
+            face_col = 1.0;
+            uv = vec2(dir.x, dir.y) / ad.z;
+        } else {
+            face_col = 3.0;
+            uv = vec2(-dir.x, dir.y) / ad.z;
+        }
+    }
+
+    local_uv := uv * 0.5 + vec2(0.5);
+    local_uv.y = 1.0 - local_uv.y;
+    inset := 2.0 / 512.0;
+    local_uv = clamp(local_uv, vec2(inset), vec2(1.0 - inset));
+    atlas_uv := (vec2(face_col, face_row) + local_uv) / vec2(4.0, 3.0);
+    color := texture_sample(data.sky_texture, data.sky_sampler, atlas_uv).xyz;
+
+    sun_dir := normalize(input.sun_direction);
+    sun_amount := pow(max(dot(dir, 0.0 - sun_dir), 0.0), 650.0);
+    color += vec3(1.0, 0.76, 0.42) * sun_amount * 2.2;
+    return vec4(color, 1.0);
+}

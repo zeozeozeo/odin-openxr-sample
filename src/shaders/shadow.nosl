@@ -1,0 +1,38 @@
+Shadow_Data :: struct
+{
+    positions: []vec4,
+    model_to_world: mat4,
+    light_origin: vec4,
+    light_right: vec4,
+    light_up: vec4,
+    light_forward: vec4,
+    light_extents: vec4,
+}
+
+Shadow_Out :: struct
+{
+    pos: vec4 @position,
+}
+
+vert :: #vertex (vert_id: uint @vert_id, data: ^Shadow_Data @data) -> Shadow_Out
+{
+    world_pos := data.model_to_world * vec4(data.positions[vert_id].xyz, 1.0);
+    from_light := world_pos.xyz - data.light_origin.xyz;
+    light_x := dot(from_light, data.light_right.xyz);
+    light_y := dot(from_light, data.light_up.xyz);
+    light_z := dot(from_light, data.light_forward.xyz);
+    clip_pos := vec4(
+        light_x / (data.light_extents.x * 0.5),
+        0.0 - light_y / (data.light_extents.y * 0.5),
+        (light_z - data.light_extents.z) / (data.light_extents.w - data.light_extents.z),
+        1.0
+    );
+
+    out: Shadow_Out;
+    out.pos = clip_pos;
+    return out;
+}
+
+frag :: #fragment ()
+{
+}

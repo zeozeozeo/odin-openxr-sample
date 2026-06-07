@@ -1,0 +1,126 @@
+Scene_Data :: struct
+{
+    positions: []vec4,
+    normals: []vec4,
+    uvs: []vec2,
+    model_to_world: mat4,
+    model_to_world_normal: mat4,
+    world_to_view: mat4,
+    view_to_proj: mat4,
+    light_origin: vec4,
+    light_right: vec4,
+    light_up: vec4,
+    light_forward: vec4,
+    light_extents: vec4,
+    camera_world_pos: vec4,
+}
+
+Scene_Out :: struct
+{
+    pos: vec4 @position,
+    world_normal: vec4 @io(0),
+    world_pos: vec4 @io(1),
+    camera_world_pos: vec4 @io(2),
+    uv: vec2 @io(3),
+    light_space: vec4 @io(4),
+}
+
+vert :: #vertex (vert_id: uint @vert_id, data: ^Scene_Data @data) -> Scene_Out
+{
+    world_pos := data.model_to_world * vec4(data.positions[vert_id].xyz, 1.0);
+    clip_pos := data.view_to_proj * (data.world_to_view * world_pos);
+    clip_pos.y = 0.0 - clip_pos.y;
+
+    from_light := world_pos.xyz - data.light_origin.xyz;
+    light_x := dot(from_light, data.light_right.xyz);
+    light_y := dot(from_light, data.light_up.xyz);
+    light_z := dot(from_light, data.light_forward.xyz);
+
+    out: Scene_Out;
+    out.pos = clip_pos;
+    out.world_normal = data.model_to_world_normal * data.normals[vert_id];
+    out.world_pos = world_pos;
+    out.camera_world_pos = data.camera_world_pos;
+    out.uv = data.uvs[vert_id];
+    out.light_space = vec4(light_x, light_y, light_z, 1.0);
+    return out;
+}
+
+Frag_Data :: struct
+{
+    base_color_map: texture_id,
+    base_color_map_sampler: sampler_id,
+    metallic_roughness_map: texture_id,
+    metallic_roughness_map_sampler: sampler_id,
+    normal_map: texture_id,
+    normal_map_sampler: sampler_id,
+    shadow_map: texture_id,
+    shadow_map_sampler: sampler_id,
+    sun_direction: vec4,
+    light_extents: vec4,
+    render_mode: uint,
+}
+
+frag :: #fragment (input: Scene_Out, data: ^Frag_Data @data) -> vec4 @io(0)
+{
+    base_sample := texture_sample(data.base_color_map, data.base_color_map_sampler, input.uv);
+    if base_sample.w < 0.08 { discard; }
+
+    mr_sample := texture_sample(data.metallic_roughness_map, data.metallic_roughness_map_sampler, input.uv);
+    albedo := pow(base_sample.xyz, vec3(2.2));
+    if data.render_mode == 1 {
+        return vec4(base_sample.xyz, base_sample.w);
+    }
+    metallic := clamp(mr_sample.z, 0.0, 1.0);
+    roughness := clamp(mr_sample.y, 0.045, 1.0);
+
+    n := normalize(input.world_normal.xyz);
+    v := normalize(input.camera_world_pos.xyz - input.world_pos.xyz);
+    l := normalize(0.0 - data.sun_direction.xyz);
+    h := normalize(v + l);
+    ndotl := max(dot(n, l), 0.0);
+    ndotv := max(dot(n, v), 0.001);
+    ndoth := max(dot(n, h), 0.001);
+    hdotv := max(dot(h, v), 0.0);
+
+    f0 := mix(vec3(0.04), albedo, vec3(metallic));
+    alpha := roughness * roughness;
+    alpha2 := alpha * alpha;
+    denom := ndoth * ndoth * (alpha2 - 1.0) + 1.0;
+    d := alpha2 / max(3.14159265 * denom * denom, 0.0001);
+    k := (roughness + 1.0);
+    k = (k * k) / 8.0;
+    g_v := ndotv / (ndotv * (1.0 - k) + k);
+    g_l := ndotl / (ndotl * (1.0 - k) + k);
+    f := f0 + (vec3(1.0) - f0) * pow(1.0 - hdotv, 5.0);
+    specular := (d * g_v * g_l) * f / max(4.0 * ndotv * ndotl, 0.001);
+    diffuse := (vec3(1.0) - f) * albedo * (1.0 - metallic) / 3.14159265;
+
+    shadow_uv := vec2(
+        input.light_space.x / data.light_extents.x + 0.5,
+        0.5 - input.light_space.y / data.light_extents.y
+    );
+    shadow_depth := (input.light_space.z - data.light_extents.z) / (data.light_extents.w - data.light_extents.z);
+    in_shadow_map := shadow_uv.x >= 0.0 && shadow_uv.x <= 1.0 && shadow_uv.y >= 0.0 && shadow_uv.y <= 1.0 && shadow_depth >= 0.0 && shadow_depth <= 1.0;
+    shadow := 1.0;
+    if in_shadow_map {
+        bias := max(0.0035 * (1.0 - ndotl), 0.0008);
+        texel := 1.0 / 2048.0;
+        lit: float = 0.0;
+        for y := -1; y <= 1; y += 1 {
+            for x := -1; x <= 1; x += 1 {
+                tap_uv := shadow_uv + vec2(float(x), float(y)) * texel;
+                closest := texture_sample(data.shadow_map, data.shadow_map_sampler, tap_uv).x;
+                lit += 1.0 if shadow_depth - bias <= closest else 0.22;
+            }
+        }
+        shadow = lit / 9.0;
+    }
+
+    sun_radiance := vec3(5.2, 4.85, 4.25);
+    ambient := albedo * vec3(0.16, 0.17, 0.19);
+    color := ambient + (diffuse + specular) * sun_radiance * ndotl * shadow;
+    color = color / (color + vec3(1.0));
+    color = pow(color, vec3(1.0 / 2.2));
+    return vec4(color, base_sample.w);
+}

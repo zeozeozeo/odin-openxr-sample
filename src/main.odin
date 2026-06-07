@@ -11,9 +11,9 @@ import "core:os"
 import "core:slice"
 import "core:strings"
 
-import gpu "../thirdparty/no_gfx/gpu"
 import shared "../thirdparty/no_gfx/examples/shared"
 import gltf2 "../thirdparty/no_gfx/examples/shared/gltf2"
+import gpu "../thirdparty/no_gfx/gpu"
 import xr "../thirdparty/openxr"
 
 import sdl "vendor:sdl3"
@@ -35,38 +35,38 @@ Sun_Orbit_Height :: 10.0
 Sun_Target :: [3]f32{0.0, 1.2, 0.0}
 
 Gpu_Context :: struct {
-	frame_sem:       gpu.Semaphore,
-	next_frame:      u64,
-	window_size:     [2]i32,
-	scene_vert:      gpu.Shader,
-	scene_frag:      gpu.Shader,
-	shadow_vert:     gpu.Shader,
-	shadow_frag:     gpu.Shader,
-	sky_vert:        gpu.Shader,
-	sky_frag:        gpu.Shader,
-	helper_vert:     gpu.Shader,
-	helper_frag:     gpu.Shader,
-	desc_pool:       gpu.Descriptor_Pool,
-	sampler_id:      u32,
-	sky_sampler:     u32,
-	shadow_sampler:  u32,
-	shadow_map_id:   u32,
-	sky_texture_id:  u32,
-	loaded_textures: [dynamic]gpu.Owned_Texture,
-	shadow_map:      gpu.Owned_Texture,
+	frame_sem:        gpu.Semaphore,
+	next_frame:       u64,
+	window_size:      [2]i32,
+	scene_vert:       gpu.Shader,
+	scene_frag:       gpu.Shader,
+	shadow_vert:      gpu.Shader,
+	shadow_frag:      gpu.Shader,
+	sky_vert:         gpu.Shader,
+	sky_frag:         gpu.Shader,
+	helper_vert:      gpu.Shader,
+	helper_frag:      gpu.Shader,
+	desc_pool:        gpu.Descriptor_Pool,
+	sampler_id:       u32,
+	sky_sampler:      u32,
+	shadow_sampler:   u32,
+	shadow_map_id:    u32,
+	sky_texture_id:   u32,
+	loaded_textures:  [dynamic]gpu.Owned_Texture,
+	shadow_map:       gpu.Owned_Texture,
 	light_projection: Light_Projection,
-	sun_direction:   [3]f32,
-	sun_position:    [3]f32,
-	sun_angle:       f32,
-	scene:           shared.Scene,
-	gltf_data:       ^gltf2.Data,
-	meshes:          [dynamic]Mesh_GPU,
-	sky_vertices:    gpu.slice_t([4]f32),
-	sky_indices:     gpu.slice_t(u32),
-	helper_vertices: gpu.slice_t([4]f32),
-	helper_indices:  gpu.slice_t(u32),
-	window_depth:    gpu.Owned_Texture,
-	frame_arenas:    [Frames_In_Flight]gpu.Arena,
+	sun_direction:    [3]f32,
+	sun_position:     [3]f32,
+	sun_angle:        f32,
+	scene:            shared.Scene,
+	gltf_data:        ^gltf2.Data,
+	meshes:           [dynamic]Mesh_GPU,
+	sky_vertices:     gpu.slice_t([4]f32),
+	sky_indices:      gpu.slice_t(u32),
+	helper_vertices:  gpu.slice_t([4]f32),
+	helper_indices:   gpu.slice_t(u32),
+	window_depth:     gpu.Owned_Texture,
+	frame_arenas:     [Frames_In_Flight]gpu.Arena,
 }
 
 Xr_Context :: struct {
@@ -89,32 +89,31 @@ Xr_Context :: struct {
 	tracking_offset:  [3]f32,
 	setup_failed:     bool,
 	should_exit:      bool,
-
-	action_set:      xr.ActionSet,
-	aim_pose_action: xr.Action,
-	left_stick:      xr.Action,
-	hand_paths:      [2]xr.Path,
-	aim_spaces:      [2]xr.Space,
-	hand_active:     [2]bool,
-	hand_poses:      [2]xr.Posef,
+	action_set:       xr.ActionSet,
+	aim_pose_action:  xr.Action,
+	left_stick:       xr.Action,
+	hand_paths:       [2]xr.Path,
+	aim_spaces:       [2]xr.Space,
+	hand_active:      [2]bool,
+	hand_poses:       [2]xr.Posef,
 	left_stick_value: [2]f32,
 }
 
 Window_Input :: struct {
-	keys:     #sparse[sdl.Scancode]bool,
-	mouse_dx: f32,
-	mouse_dy: f32,
+	keys:       #sparse[sdl.Scancode]bool,
+	mouse_dx:   f32,
+	mouse_dy:   f32,
 	mouse_look: bool,
 }
 
 Walker :: struct {
-	xr_origin:            [3]f32,
-	window_pos:           [3]f32,
-	window_yaw_pitch:     [2]f32,
-	teleport_active:      bool,
-	teleport_target:      [3]f32,
+	xr_origin:              [3]f32,
+	window_pos:             [3]f32,
+	window_yaw_pitch:       [2]f32,
+	teleport_active:        bool,
+	teleport_target:        [3]f32,
 	teleport_player_target: [3]f32,
-	teleport_stick_was_on: bool,
+	teleport_stick_was_on:  bool,
 }
 
 Mesh_GPU :: struct {
@@ -246,7 +245,9 @@ main :: proc() {
 
 		if !xr_ctx.render_ready && !xr_ctx.setup_failed && retry_frame == 0 {
 			if xr_ctx.system_id == {} && xr_try_get_system(&xr_ctx) {
-				log.info("OpenXR HMD system became available; recreating Vulkan device with runtime extensions.")
+				log.info(
+					"OpenXR HMD system became available; recreating Vulkan device with runtime extensions.",
+				)
 				gpu_context_destroy(&gpu_ctx)
 				add_openxr_vulkan_device_extensions(xr_ctx.instance, xr_ctx.system_id)
 				gpu_ctx = gpu_init_for_window(window)
@@ -265,7 +266,9 @@ main :: proc() {
 		was_xr_frame_mode = xr_frame_mode
 
 		if xr_frame_mode {
-			frame_state := xr.FrameState{sType = .FRAME_STATE}
+			frame_state := xr.FrameState {
+				sType = .FRAME_STATE,
+			}
 			wait_result := xr.WaitFrame(
 				xr_ctx.session,
 				&xr.FrameWaitInfo{sType = .FRAME_WAIT_INFO},
@@ -277,7 +280,10 @@ main :: proc() {
 				xr_ctx.session_running = false
 				continue
 			}
-			xr_check(xr.BeginFrame(xr_ctx.session, &xr.FrameBeginInfo{sType = .FRAME_BEGIN_INFO}), "xrBeginFrame")
+			xr_check(
+				xr.BeginFrame(xr_ctx.session, &xr.FrameBeginInfo{sType = .FRAME_BEGIN_INFO}),
+				"xrBeginFrame",
+			)
 
 			if !bool(frame_state.shouldRender) {
 				xr_end_frame_empty(xr_ctx.session, frame_state.predictedDisplayTime)
@@ -361,18 +367,26 @@ gpu_context_create_scene_resources :: proc(ctx: ^Gpu_Context) {
 	)
 	ctx.sky_sampler = gpu.desc_pool_alloc_sampler(
 		&ctx.desc_pool,
-		gpu.sampler_descriptor({
-			min_filter = .Nearest,
-			mag_filter = .Nearest,
-			mip_filter = .Nearest,
-			address_mode_u = .Clamp_To_Edge,
-			address_mode_v = .Clamp_To_Edge,
-			address_mode_w = .Clamp_To_Edge,
-		}),
+		gpu.sampler_descriptor(
+			{
+				min_filter = .Nearest,
+				mag_filter = .Nearest,
+				mip_filter = .Nearest,
+				address_mode_u = .Clamp_To_Edge,
+				address_mode_v = .Clamp_To_Edge,
+				address_mode_w = .Clamp_To_Edge,
+			},
+		),
 	)
 	ctx.shadow_sampler = gpu.desc_pool_alloc_sampler(
 		&ctx.desc_pool,
-		gpu.sampler_descriptor({address_mode_u = .Clamp_To_Edge, address_mode_v = .Clamp_To_Edge, address_mode_w = .Clamp_To_Edge}),
+		gpu.sampler_descriptor(
+			{
+				address_mode_u = .Clamp_To_Edge,
+				address_mode_v = .Clamp_To_Edge,
+				address_mode_w = .Clamp_To_Edge,
+			},
+		),
 	)
 	update_sun(ctx, 0)
 
@@ -391,10 +405,22 @@ gpu_context_create_scene_resources :: proc(ctx: ^Gpu_Context) {
 	append(&ctx.loaded_textures, default_mr)
 	append(&ctx.loaded_textures, default_normal)
 	append(&ctx.loaded_textures, sky_texture)
-	default_base_id := gpu.desc_pool_alloc_texture(&ctx.desc_pool, gpu.texture_view_descriptor(default_base, {}))
-	default_mr_id := gpu.desc_pool_alloc_texture(&ctx.desc_pool, gpu.texture_view_descriptor(default_mr, {}))
-	default_normal_id := gpu.desc_pool_alloc_texture(&ctx.desc_pool, gpu.texture_view_descriptor(default_normal, {}))
-	ctx.sky_texture_id = gpu.desc_pool_alloc_texture(&ctx.desc_pool, gpu.texture_view_descriptor(sky_texture, {}))
+	default_base_id := gpu.desc_pool_alloc_texture(
+		&ctx.desc_pool,
+		gpu.texture_view_descriptor(default_base, {}),
+	)
+	default_mr_id := gpu.desc_pool_alloc_texture(
+		&ctx.desc_pool,
+		gpu.texture_view_descriptor(default_mr, {}),
+	)
+	default_normal_id := gpu.desc_pool_alloc_texture(
+		&ctx.desc_pool,
+		gpu.texture_view_descriptor(default_normal, {}),
+	)
+	ctx.sky_texture_id = gpu.desc_pool_alloc_texture(
+		&ctx.desc_pool,
+		gpu.texture_view_descriptor(sky_texture, {}),
+	)
 	for &mesh in ctx.scene.meshes {
 		mesh.base_color_map = default_base_id
 		mesh.metallic_roughness_map = default_mr_id
@@ -414,7 +440,10 @@ gpu_context_create_scene_resources :: proc(ctx: ^Gpu_Context) {
 			usage = {.Depth_Stencil_Attachment, .Sampled},
 		},
 	)
-	ctx.shadow_map_id = gpu.desc_pool_alloc_texture(&ctx.desc_pool, gpu.texture_view_descriptor(ctx.shadow_map, {}))
+	ctx.shadow_map_id = gpu.desc_pool_alloc_texture(
+		&ctx.desc_pool,
+		gpu.texture_view_descriptor(ctx.shadow_map, {}),
+	)
 	gpu.cmd_barrier(upload_cmd_buf, .Transfer, .All, {})
 	gpu.queue_submit(.Main, {upload_cmd_buf})
 	gpu.queue_wait_idle(.Main)
@@ -434,7 +463,13 @@ gpu_context_resize_window_depth :: proc(ctx: ^Gpu_Context) {
 	)
 }
 
-load_sponza_scene :: proc(path: string) -> (shared.Scene, []shared.Gltf_Texture_Info, ^gltf2.Data) {
+load_sponza_scene :: proc(
+	path: string,
+) -> (
+	shared.Scene,
+	[]shared.Gltf_Texture_Info,
+	^gltf2.Data,
+) {
 	data, err := gltf2.load_from_file(path)
 	if err != nil {
 		log.errorf("Failed to load Sponza glTF: %v", err)
@@ -451,8 +486,18 @@ load_sponza_scene :: proc(path: string) -> (shared.Scene, []shared.Gltf_Texture_
 		for primitive in mesh.primitives {
 			assert(primitive.mode == .Triangles)
 
-			positions := shared.buffer_slice_with_stride([3]f32, data, primitive.attributes["POSITION"], context.temp_allocator)
-			normals := shared.buffer_slice_with_stride([3]f32, data, primitive.attributes["NORMAL"], context.temp_allocator)
+			positions := shared.buffer_slice_with_stride(
+				[3]f32,
+				data,
+				primitive.attributes["POSITION"],
+				context.temp_allocator,
+			)
+			normals := shared.buffer_slice_with_stride(
+				[3]f32,
+				data,
+				primitive.attributes["NORMAL"],
+				context.temp_allocator,
+			)
 			indices := gltf2.buffer_slice(data, primitive.indices.?)
 
 			indices_u32: [dynamic]u32
@@ -470,7 +515,12 @@ load_sponza_scene :: proc(path: string) -> (shared.Scene, []shared.Gltf_Texture_
 			norm4 := shared.to_vec4_array(normals, context.temp_allocator)
 			uvs := make([][2]f32, len(positions), allocator = context.temp_allocator)
 			if uv_accessor, ok := primitive.attributes["TEXCOORD_0"]; ok {
-				uv_src := shared.buffer_slice_with_stride([2]f32, data, uv_accessor, context.temp_allocator)
+				uv_src := shared.buffer_slice_with_stride(
+					[2]f32,
+					data,
+					uv_accessor,
+					context.temp_allocator,
+				)
 				copy(uvs, uv_src)
 			}
 
@@ -480,23 +530,45 @@ load_sponza_scene :: proc(path: string) -> (shared.Scene, []shared.Gltf_Texture_
 				if material.metallic_roughness != nil {
 					mr := material.metallic_roughness.?
 					if mr.base_color_texture != nil {
-						append(&texture_infos, texture_info_for(data, mesh_idx, .Base_Color, mr.base_color_texture.?.index))
+						append(
+							&texture_infos,
+							texture_info_for(
+								data,
+								mesh_idx,
+								.Base_Color,
+								mr.base_color_texture.?.index,
+							),
+						)
 					}
 					if mr.metallic_roughness_texture != nil {
-						append(&texture_infos, texture_info_for(data, mesh_idx, .Metallic_Roughness, mr.metallic_roughness_texture.?.index))
+						append(
+							&texture_infos,
+							texture_info_for(
+								data,
+								mesh_idx,
+								.Metallic_Roughness,
+								mr.metallic_roughness_texture.?.index,
+							),
+						)
 					}
 				}
 				if material.normal_texture != nil {
-					append(&texture_infos, texture_info_for(data, mesh_idx, .Normal, material.normal_texture.?.index))
+					append(
+						&texture_infos,
+						texture_info_for(data, mesh_idx, .Normal, material.normal_texture.?.index),
+					)
 				}
 			}
 
-			append(&meshes, shared.Mesh {
-				pos     = slice.clone_to_dynamic(pos4),
-				normals = slice.clone_to_dynamic(norm4),
-				uvs     = slice.clone_to_dynamic(uvs),
-				indices = slice.clone_to_dynamic(indices_u32[:]),
-			})
+			append(
+				&meshes,
+				shared.Mesh {
+					pos = slice.clone_to_dynamic(pos4),
+					normals = slice.clone_to_dynamic(norm4),
+					uvs = slice.clone_to_dynamic(uvs),
+					indices = slice.clone_to_dynamic(indices_u32[:]),
+				},
+			)
 		}
 		_ = mesh_i
 	}
@@ -524,7 +596,7 @@ load_sponza_scene :: proc(path: string) -> (shared.Scene, []shared.Gltf_Texture_
 					instances,
 					shared.Instance {
 						transform = flip_z * transform,
-						mesh_idx  = start_idx[mesh_idx] + u32(primitive_i),
+						mesh_idx = start_idx[mesh_idx] + u32(primitive_i),
 					},
 				)
 			}
@@ -539,30 +611,45 @@ load_sponza_scene :: proc(path: string) -> (shared.Scene, []shared.Gltf_Texture_
 		traverse_node(&instances, data, start_idx[:], 1, int(node_idx), flip_z)
 	}
 
-	log.infof("Loaded Sponza from %s: %d mesh primitives, %d instances", path, len(meshes), len(instances))
+	log.infof(
+		"Loaded Sponza from %s: %d mesh primitives, %d instances",
+		path,
+		len(meshes),
+		len(instances),
+	)
 	return shared.Scene{meshes = meshes, instances = instances}, texture_infos[:], data
 }
 
-texture_info_for :: proc(data: ^gltf2.Data, mesh_id: u32, texture_type: shared.Texture_Type, texture_index: gltf2.Integer) -> shared.Gltf_Texture_Info {
+texture_info_for :: proc(
+	data: ^gltf2.Data,
+	mesh_id: u32,
+	texture_type: shared.Texture_Type,
+	texture_index: gltf2.Integer,
+) -> shared.Gltf_Texture_Info {
 	image_index := int(data.textures[texture_index].source.?)
 	return {mesh_id = mesh_id, texture_type = texture_type, image_index = image_index}
 }
 
-create_solid_texture :: proc(upload_arena: ^gpu.Arena, cmd_buf: gpu.Command_Buffer, rgba: [4]u8) -> gpu.Owned_Texture {
+create_solid_texture :: proc(
+	upload_arena: ^gpu.Arena,
+	cmd_buf: gpu.Command_Buffer,
+	rgba: [4]u8,
+) -> gpu.Owned_Texture {
 	staging := gpu.arena_alloc(upload_arena, u8, 4)
 	for c, i in rgba do staging.cpu[i] = c
 	texture := gpu.texture_alloc_and_create(
-		{
-			dimensions = {1, 1, 1},
-			format = .RGBA8_Unorm,
-			usage = {.Sampled},
-		},
+		{dimensions = {1, 1, 1}, format = .RGBA8_Unorm, usage = {.Sampled}},
 	)
 	gpu.cmd_copy_to_texture(cmd_buf, texture, staging)
 	return texture
 }
 
-load_scene_textures :: proc(ctx: ^Gpu_Context, texture_infos: []shared.Gltf_Texture_Info, upload_arena: ^gpu.Arena, cmd_buf: gpu.Command_Buffer) {
+load_scene_textures :: proc(
+	ctx: ^Gpu_Context,
+	texture_infos: []shared.Gltf_Texture_Info,
+	upload_arena: ^gpu.Arena,
+	cmd_buf: gpu.Command_Buffer,
+) {
 	image_to_descriptor: map[int]u32
 	defer delete(image_to_descriptor)
 
@@ -575,7 +662,10 @@ load_scene_textures :: proc(ctx: ^Gpu_Context, texture_infos: []shared.Gltf_Text
 			texture := upload_image_texture(img, upload_arena, cmd_buf)
 			image.destroy(img)
 			append(&ctx.loaded_textures, texture)
-			texture_id = gpu.desc_pool_alloc_texture(&ctx.desc_pool, gpu.texture_view_descriptor(texture, {}))
+			texture_id = gpu.desc_pool_alloc_texture(
+				&ctx.desc_pool,
+				gpu.texture_view_descriptor(texture, {}),
+			)
 			image_to_descriptor[info.image_index] = texture_id
 		}
 
@@ -592,7 +682,11 @@ load_scene_textures :: proc(ctx: ^Gpu_Context, texture_infos: []shared.Gltf_Text
 	log.infof("Loaded %d unique Sponza textures", len(image_to_descriptor))
 }
 
-upload_image_texture :: proc(img: ^image.Image, upload_arena: ^gpu.Arena, cmd_buf: gpu.Command_Buffer) -> gpu.Owned_Texture {
+upload_image_texture :: proc(
+	img: ^image.Image,
+	upload_arena: ^gpu.Arena,
+	cmd_buf: gpu.Command_Buffer,
+) -> gpu.Owned_Texture {
 	staging := gpu.arena_alloc_raw(upload_arena, len(img.pixels.buf), 1, 16)
 	runtime.mem_copy(staging.cpu, raw_data(img.pixels.buf), len(img.pixels.buf))
 
@@ -608,7 +702,11 @@ upload_image_texture :: proc(img: ^image.Image, upload_arena: ^gpu.Arena, cmd_bu
 	return texture
 }
 
-load_texture_file :: proc(path: string, upload_arena: ^gpu.Arena, cmd_buf: gpu.Command_Buffer) -> gpu.Owned_Texture {
+load_texture_file :: proc(
+	path: string,
+	upload_arena: ^gpu.Arena,
+	cmd_buf: gpu.Command_Buffer,
+) -> gpu.Owned_Texture {
 	bytes, err := os.read_entire_file_from_path(path, context.allocator)
 	ensure(err == nil, fmt.tprintf("Could not read texture file: %s", path))
 	defer delete(bytes)
@@ -620,7 +718,11 @@ load_texture_file :: proc(path: string, upload_arena: ^gpu.Arena, cmd_buf: gpu.C
 	return upload_image_texture(img, upload_arena, cmd_buf)
 }
 
-upload_mesh :: proc(upload_arena: ^gpu.Arena, cmd_buf: gpu.Command_Buffer, mesh: shared.Mesh) -> Mesh_GPU {
+upload_mesh :: proc(
+	upload_arena: ^gpu.Arena,
+	cmd_buf: gpu.Command_Buffer,
+	mesh: shared.Mesh,
+) -> Mesh_GPU {
 	positions_staging := gpu.arena_alloc(upload_arena, [4]f32, len(mesh.pos))
 	normals_staging := gpu.arena_alloc(upload_arena, [4]f32, len(mesh.normals))
 	uvs_staging := gpu.arena_alloc(upload_arena, [2]f32, len(mesh.uvs))
@@ -650,19 +752,80 @@ mesh_destroy :: proc(mesh: ^Mesh_GPU) {
 	mesh^ = {}
 }
 
-create_helper_mesh :: proc(upload_arena: ^gpu.Arena, cmd_buf: gpu.Command_Buffer) -> (gpu.slice_t([4]f32), gpu.slice_t(u32)) {
+create_helper_mesh :: proc(
+	upload_arena: ^gpu.Arena,
+	cmd_buf: gpu.Command_Buffer,
+) -> (
+	gpu.slice_t([4]f32),
+	gpu.slice_t(u32),
+) {
 	verts := [?][4]f32 {
-		{-0.035, 0.02, 0.0, 1}, {0.035, 0.02, 0.0, 1}, {0.035, 0.02, 1.0, 1}, {-0.035, 0.02, 1.0, 1},
-		{-0.35, 0.025, -0.35, 1}, {0.35, 0.025, -0.35, 1}, {0.35, 0.025, 0.35, 1}, {-0.35, 0.025, 0.35, 1},
-		{-0.08, -0.08, -0.08, 1}, {0.08, -0.08, -0.08, 1}, {0.08, 0.08, -0.08, 1}, {-0.08, 0.08, -0.08, 1},
-		{-0.08, -0.08, 0.08, 1}, {0.08, -0.08, 0.08, 1}, {0.08, 0.08, 0.08, 1}, {-0.08, 0.08, 0.08, 1},
+		{-0.035, 0.02, 0.0, 1},
+		{0.035, 0.02, 0.0, 1},
+		{0.035, 0.02, 1.0, 1},
+		{-0.035, 0.02, 1.0, 1},
+		{-0.35, 0.025, -0.35, 1},
+		{0.35, 0.025, -0.35, 1},
+		{0.35, 0.025, 0.35, 1},
+		{-0.35, 0.025, 0.35, 1},
+		{-0.08, -0.08, -0.08, 1},
+		{0.08, -0.08, -0.08, 1},
+		{0.08, 0.08, -0.08, 1},
+		{-0.08, 0.08, -0.08, 1},
+		{-0.08, -0.08, 0.08, 1},
+		{0.08, -0.08, 0.08, 1},
+		{0.08, 0.08, 0.08, 1},
+		{-0.08, 0.08, 0.08, 1},
 	}
 	indices := [?]u32 {
-		0, 1, 2, 0, 2, 3,
-		4, 5, 6, 4, 6, 7,
-		8, 10, 9, 8, 11, 10, 12, 13, 14, 12, 14, 15,
-		8, 9, 13, 8, 13, 12, 9, 10, 14, 9, 14, 13,
-		10, 11, 15, 10, 15, 14, 11, 8, 12, 11, 12, 15,
+		0,
+		1,
+		2,
+		0,
+		2,
+		3,
+		4,
+		5,
+		6,
+		4,
+		6,
+		7,
+		8,
+		10,
+		9,
+		8,
+		11,
+		10,
+		12,
+		13,
+		14,
+		12,
+		14,
+		15,
+		8,
+		9,
+		13,
+		8,
+		13,
+		12,
+		9,
+		10,
+		14,
+		9,
+		14,
+		13,
+		10,
+		11,
+		15,
+		10,
+		15,
+		14,
+		11,
+		8,
+		12,
+		11,
+		12,
+		15,
 	}
 
 	verts_staging := gpu.arena_alloc(upload_arena, [4]f32, len(verts))
@@ -677,18 +840,60 @@ create_helper_mesh :: proc(upload_arena: ^gpu.Arena, cmd_buf: gpu.Command_Buffer
 	return verts_gpu, indices_gpu
 }
 
-create_sky_cube :: proc(upload_arena: ^gpu.Arena, cmd_buf: gpu.Command_Buffer) -> (gpu.slice_t([4]f32), gpu.slice_t(u32)) {
+create_sky_cube :: proc(
+	upload_arena: ^gpu.Arena,
+	cmd_buf: gpu.Command_Buffer,
+) -> (
+	gpu.slice_t([4]f32),
+	gpu.slice_t(u32),
+) {
 	verts := [?][4]f32 {
-		{-1, -1, -1, 1}, {1, -1, -1, 1}, {1, 1, -1, 1}, {-1, 1, -1, 1},
-		{-1, -1, 1, 1}, {1, -1, 1, 1}, {1, 1, 1, 1}, {-1, 1, 1, 1},
+		{-1, -1, -1, 1},
+		{1, -1, -1, 1},
+		{1, 1, -1, 1},
+		{-1, 1, -1, 1},
+		{-1, -1, 1, 1},
+		{1, -1, 1, 1},
+		{1, 1, 1, 1},
+		{-1, 1, 1, 1},
 	}
 	indices := [?]u32 {
-		0, 2, 1, 0, 3, 2,
-		5, 6, 4, 6, 7, 4,
-		4, 7, 0, 7, 3, 0,
-		1, 2, 5, 2, 6, 5,
-		3, 7, 2, 7, 6, 2,
-		4, 0, 5, 0, 1, 5,
+		0,
+		2,
+		1,
+		0,
+		3,
+		2,
+		5,
+		6,
+		4,
+		6,
+		7,
+		4,
+		4,
+		7,
+		0,
+		7,
+		3,
+		0,
+		1,
+		2,
+		5,
+		2,
+		6,
+		5,
+		3,
+		7,
+		2,
+		7,
+		6,
+		2,
+		4,
+		0,
+		5,
+		0,
+		1,
+		5,
 	}
 	verts_staging := gpu.arena_alloc(upload_arena, [4]f32, len(verts))
 	indices_staging := gpu.arena_alloc(upload_arena, u32, len(indices))
@@ -716,7 +921,10 @@ draw_sky :: proc(
 		sun_direction = {ctx.sun_direction.x, ctx.sun_direction.y, ctx.sun_direction.z, 0.0},
 	}
 	frag_data := gpu.arena_alloc(frame_arena, Sky_Frag_Data)
-	frag_data.cpu^ = {sky_texture = ctx.sky_texture_id, sky_sampler = ctx.sky_sampler}
+	frag_data.cpu^ = {
+		sky_texture = ctx.sky_texture_id,
+		sky_sampler = ctx.sky_sampler,
+	}
 	gpu.cmd_set_shaders(cmd_buf, ctx.sky_vert, ctx.sky_frag)
 	gpu.cmd_set_desc_heap(cmd_buf, ctx.desc_pool)
 	gpu.cmd_set_depth_state(cmd_buf, {mode = {}, compare = .Always})
@@ -753,14 +961,21 @@ draw_scene :: proc(
 			normals               = mesh.normals.gpu.ptr,
 			uvs                   = mesh.uvs.gpu.ptr,
 			model_to_world        = intr.matrix_flatten(instance.transform),
-			model_to_world_normal = intr.matrix_flatten(linalg.transpose(linalg.inverse(instance.transform))),
+			model_to_world_normal = intr.matrix_flatten(
+				linalg.transpose(linalg.inverse(instance.transform)),
+			),
 			world_to_view         = intr.matrix_flatten(world_to_view),
 			view_to_proj          = intr.matrix_flatten(view_to_proj),
 			light_origin          = vec3_to_vec4(ctx.light_projection.origin, 1.0),
 			light_right           = vec3_to_vec4(ctx.light_projection.right, 0.0),
 			light_up              = vec3_to_vec4(ctx.light_projection.up, 0.0),
 			light_forward         = vec3_to_vec4(ctx.light_projection.forward, 0.0),
-			light_extents         = {ctx.light_projection.width, ctx.light_projection.height, ctx.light_projection.near, ctx.light_projection.far},
+			light_extents         = {
+				ctx.light_projection.width,
+				ctx.light_projection.height,
+				ctx.light_projection.near,
+				ctx.light_projection.far,
+			},
 			camera_world_pos      = {camera_pos.x, camera_pos.y, camera_pos.z, 1.0},
 		}
 		frag_data := gpu.arena_alloc(frame_arena, Scene_Frag_Data)
@@ -773,23 +988,34 @@ draw_scene :: proc(
 			normal_map_sampler             = ctx.sampler_id,
 			shadow_map                     = ctx.shadow_map_id,
 			shadow_map_sampler             = ctx.shadow_sampler,
-			sun_direction                  = {ctx.sun_direction.x, ctx.sun_direction.y, ctx.sun_direction.z, 0.0},
-			light_extents                  = {ctx.light_projection.width, ctx.light_projection.height, ctx.light_projection.near, ctx.light_projection.far},
+			sun_direction                  = {
+				ctx.sun_direction.x,
+				ctx.sun_direction.y,
+				ctx.sun_direction.z,
+				0.0,
+			},
+			light_extents                  = {
+				ctx.light_projection.width,
+				ctx.light_projection.height,
+				ctx.light_projection.near,
+				ctx.light_projection.far,
+			},
 			render_mode                    = 1 if Fullbright_Debug else 0,
 		}
 		gpu.cmd_draw_indexed(cmd_buf, data, frag_data, mesh.indices)
 	}
 }
 
-render_shadow_pass :: proc(cmd_buf: gpu.Command_Buffer, frame_arena: ^gpu.Arena, ctx: ^Gpu_Context) {
+render_shadow_pass :: proc(
+	cmd_buf: gpu.Command_Buffer,
+	frame_arena: ^gpu.Arena,
+	ctx: ^Gpu_Context,
+) {
 	gpu.cmd_begin_render_pass(
 		cmd_buf,
 		{
 			render_area_size = {Shadow_Size, Shadow_Size},
-			depth_attachment = gpu.Render_Attachment {
-				texture = ctx.shadow_map,
-				clear_color = 1.0,
-			},
+			depth_attachment = gpu.Render_Attachment{texture = ctx.shadow_map, clear_color = 1.0},
 		},
 	)
 	gpu.cmd_set_shaders(cmd_buf, ctx.shadow_vert, ctx.shadow_frag)
@@ -806,7 +1032,12 @@ render_shadow_pass :: proc(cmd_buf: gpu.Command_Buffer, frame_arena: ^gpu.Arena,
 			light_right    = vec3_to_vec4(ctx.light_projection.right, 0.0),
 			light_up       = vec3_to_vec4(ctx.light_projection.up, 0.0),
 			light_forward  = vec3_to_vec4(ctx.light_projection.forward, 0.0),
-			light_extents  = {ctx.light_projection.width, ctx.light_projection.height, ctx.light_projection.near, ctx.light_projection.far},
+			light_extents  = {
+				ctx.light_projection.width,
+				ctx.light_projection.height,
+				ctx.light_projection.near,
+				ctx.light_projection.far,
+			},
 		}
 		gpu.cmd_draw_indexed(cmd_buf, data, {}, mesh.indices)
 	}
@@ -816,11 +1047,13 @@ render_shadow_pass :: proc(cmd_buf: gpu.Command_Buffer, frame_arena: ^gpu.Arena,
 
 update_sun :: proc(ctx: ^Gpu_Context, dt: f32) {
 	ctx.sun_angle += dt * Sun_Spin_Rate
-	ctx.sun_position = Sun_Target + [3]f32 {
-		math.cos(ctx.sun_angle) * Sun_Orbit_Radius,
-		Sun_Orbit_Height,
-		math.sin(ctx.sun_angle) * Sun_Orbit_Radius,
-	}
+	ctx.sun_position =
+		Sun_Target +
+		[3]f32 {
+				math.cos(ctx.sun_angle) * Sun_Orbit_Radius,
+				Sun_Orbit_Height,
+				math.sin(ctx.sun_angle) * Sun_Orbit_Radius,
+			}
 	ctx.sun_direction = linalg.normalize(Sun_Target - ctx.sun_position)
 	ctx.light_projection = make_sun_projection(ctx.sun_position, ctx.sun_direction)
 }
@@ -899,10 +1132,21 @@ render_helpers :: proc(
 		dist := linalg.length(dir)
 		if dist > 0.001 {
 			yaw := math.atan2(dir.x, dir.z)
-			model := linalg.matrix4_translate_f32(start) *
+			model :=
+				linalg.matrix4_translate_f32(start) *
 				linalg.matrix4_rotate_f32(yaw, {0, 1, 0}) *
 				linalg.matrix4_scale_f32({1, 1, dist})
-			draw_helper(cmd_buf, frame_arena, ctx, model, world_to_view, view_to_proj, {0.1, 0.85, 1.0, 0.85}, 0, 6)
+			draw_helper(
+				cmd_buf,
+				frame_arena,
+				ctx,
+				model,
+				world_to_view,
+				view_to_proj,
+				{0.1, 0.85, 1.0, 0.85},
+				0,
+				6,
+			)
 		}
 		draw_helper(
 			cmd_buf,
@@ -920,7 +1164,9 @@ render_helpers :: proc(
 	for pose, i in xr_ctx.hand_poses {
 		if !xr_ctx.hand_active[i] do continue
 		p := pose_position(pose) + walker.xr_origin + xr_ctx.tracking_offset
-		model := linalg.matrix4_translate_f32(p) * linalg.matrix4_from_quaternion(pose_orientation(pose)) *
+		model :=
+			linalg.matrix4_translate_f32(p) *
+			linalg.matrix4_from_quaternion(pose_orientation(pose)) *
 			linalg.matrix4_scale_f32({1.0, 1.0, 1.0})
 		color := [4]f32{1.0, 0.72, 0.18, 1.0} if i == 0 else [4]f32{0.25, 0.68, 1.0, 1.0}
 		draw_helper(cmd_buf, frame_arena, ctx, model, world_to_view, view_to_proj, color, 12, 36)
@@ -952,7 +1198,10 @@ xr_create_instance :: proc() -> Xr_Context {
 }
 
 xr_try_get_system :: proc(ctx: ^Xr_Context) -> bool {
-	system_info := xr.SystemGetInfo{sType = .SYSTEM_GET_INFO, formFactor = .HEAD_MOUNTED_DISPLAY}
+	system_info := xr.SystemGetInfo {
+		sType      = .SYSTEM_GET_INFO,
+		formFactor = .HEAD_MOUNTED_DISPLAY,
+	}
 	result := xr.GetSystem(ctx.instance, &system_info, &ctx.system_id)
 	if result == .SUCCESS do return true
 	if result == .ERROR_FORM_FACTOR_UNAVAILABLE do return false
@@ -984,12 +1233,24 @@ xr_try_create_rendering :: proc(ctx: ^Xr_Context) -> bool {
 
 add_openxr_vulkan_device_extensions :: proc(instance: xr.Instance, system_id: xr.SystemId) {
 	count: u32
-	xr_check(xr.GetVulkanDeviceExtensionsKHR(instance, system_id, 0, &count, nil), "xrGetVulkanDeviceExtensionsKHR/count")
+	xr_check(
+		xr.GetVulkanDeviceExtensionsKHR(instance, system_id, 0, &count, nil),
+		"xrGetVulkanDeviceExtensionsKHR/count",
+	)
 	if count == 0 do return
 
 	buffer := make([]u8, count)
 	defer delete(buffer)
-	xr_check(xr.GetVulkanDeviceExtensionsKHR(instance, system_id, count, &count, cstring(raw_data(buffer))), "xrGetVulkanDeviceExtensionsKHR")
+	xr_check(
+		xr.GetVulkanDeviceExtensionsKHR(
+			instance,
+			system_id,
+			count,
+			&count,
+			cstring(raw_data(buffer)),
+		),
+		"xrGetVulkanDeviceExtensionsKHR",
+	)
 
 	extension_string := string(buffer[:max(0, int(count) - 1)])
 	extensions := strings.fields(extension_string)
@@ -1000,12 +1261,19 @@ add_openxr_vulkan_device_extensions :: proc(instance: xr.Instance, system_id: xr
 }
 
 verify_openxr_vulkan_device :: proc(instance: xr.Instance, system_id: xr.SystemId) -> xr.Result {
-	requirements := xr.GraphicsRequirementsVulkanKHR{sType = .GRAPHICS_REQUIREMENTS_VULKAN_KHR}
+	requirements := xr.GraphicsRequirementsVulkanKHR {
+		sType = .GRAPHICS_REQUIREMENTS_VULKAN_KHR,
+	}
 	result := xr.GetVulkanGraphicsRequirementsKHR(instance, system_id, &requirements)
 	if result != .SUCCESS do return result
 
 	xr_physical_device: vk.PhysicalDevice
-	result = xr.GetVulkanGraphicsDeviceKHR(instance, system_id, gpu.vk_get_instance(), &xr_physical_device)
+	result = xr.GetVulkanGraphicsDeviceKHR(
+		instance,
+		system_id,
+		gpu.vk_get_instance(),
+		&xr_physical_device,
+	)
 	if result != .SUCCESS do return result
 	if xr_physical_device != gpu.vk_get_physical_device() {
 		log.error("OpenXR runtime selected a different Vulkan physical device.")
@@ -1023,7 +1291,11 @@ xr_create_session_space_and_swapchain :: proc(ctx: ^Xr_Context) -> bool {
 		queueFamilyIndex = gpu.vk_get_queue_family(.Main),
 		queueIndex       = 0,
 	}
-	session_info := xr.SessionCreateInfo{sType = .SESSION_CREATE_INFO, next = &binding, systemId = ctx.system_id}
+	session_info := xr.SessionCreateInfo {
+		sType    = .SESSION_CREATE_INFO,
+		next     = &binding,
+		systemId = ctx.system_id,
+	}
 	result := xr.CreateSession(ctx.instance, &session_info, &ctx.session)
 	if result != .SUCCESS {
 		log.errorf("xrCreateSession failed: %v", result)
@@ -1035,14 +1307,28 @@ xr_create_session_space_and_swapchain :: proc(ctx: ^Xr_Context) -> bool {
 	if !xr_setup_actions(ctx) do return false
 
 	view_count: u32
-	result = xr.EnumerateViewConfigurationViews(ctx.instance, ctx.system_id, .PRIMARY_STEREO, 0, &view_count, nil)
+	result = xr.EnumerateViewConfigurationViews(
+		ctx.instance,
+		ctx.system_id,
+		.PRIMARY_STEREO,
+		0,
+		&view_count,
+		nil,
+	)
 	if result != .SUCCESS {
 		log.errorf("xrEnumerateViewConfigurationViews/count failed: %v", result)
 		return false
 	}
 	ctx.config_views = make([]xr.ViewConfigurationView, view_count)
 	for &view in ctx.config_views do view.sType = .VIEW_CONFIGURATION_VIEW
-	result = xr.EnumerateViewConfigurationViews(ctx.instance, ctx.system_id, .PRIMARY_STEREO, view_count, &view_count, raw_data(ctx.config_views))
+	result = xr.EnumerateViewConfigurationViews(
+		ctx.instance,
+		ctx.system_id,
+		.PRIMARY_STEREO,
+		view_count,
+		&view_count,
+		raw_data(ctx.config_views),
+	)
 	if result != .SUCCESS {
 		log.errorf("xrEnumerateViewConfigurationViews failed: %v", result)
 		return false
@@ -1077,7 +1363,11 @@ xr_create_session_space_and_swapchain :: proc(ctx: ^Xr_Context) -> bool {
 	ctx.depth_texture = gpu.texture_alloc_and_create(
 		{
 			type = .D2,
-			dimensions = {ctx.config_views[0].recommendedImageRectWidth, ctx.config_views[0].recommendedImageRectHeight, 1},
+			dimensions = {
+				ctx.config_views[0].recommendedImageRectWidth,
+				ctx.config_views[0].recommendedImageRectHeight,
+				1,
+			},
 			layer_count = view_count,
 			sample_count = ctx.config_views[0].recommendedSwapchainSampleCount,
 			format = .D32_Float,
@@ -1101,7 +1391,10 @@ xr_create_app_space :: proc(ctx: ^Xr_Context) -> bool {
 		return true
 	}
 
-	log.warnf("OpenXR STAGE reference space unavailable (%v); falling back to LOCAL with eye-height offset.", result)
+	log.warnf(
+		"OpenXR STAGE reference space unavailable (%v); falling back to LOCAL with eye-height offset.",
+		result,
+	)
 	space_info.referenceSpaceType = .LOCAL
 	result = xr.CreateReferenceSpace(ctx.session, &space_info, &ctx.app_space)
 	if result != .SUCCESS {
@@ -1118,10 +1411,10 @@ xr_setup_actions :: proc(ctx: ^Xr_Context) -> bool {
 	xr_string_to_path(ctx.instance, "/user/hand/right", &ctx.hand_paths[1])
 
 	action_set_info := xr.ActionSetCreateInfo {
-		sType = .ACTION_SET_CREATE_INFO,
-		actionSetName = xr.make_string("walker", xr.MAX_ACTION_SET_NAME_SIZE),
+		sType                  = .ACTION_SET_CREATE_INFO,
+		actionSetName          = xr.make_string("walker", xr.MAX_ACTION_SET_NAME_SIZE),
 		localizedActionSetName = xr.make_string("Walker", xr.MAX_LOCALIZED_ACTION_SET_NAME_SIZE),
-		priority = 0,
+		priority               = 0,
 	}
 	result := xr.CreateActionSet(ctx.instance, &action_set_info, &ctx.action_set)
 	if result != .SUCCESS {
@@ -1130,11 +1423,11 @@ xr_setup_actions :: proc(ctx: ^Xr_Context) -> bool {
 	}
 
 	pose_info := xr.ActionCreateInfo {
-		sType = .ACTION_CREATE_INFO,
-		actionName = xr.make_string("aim_pose", xr.MAX_ACTION_NAME_SIZE),
-		actionType = .POSE_INPUT,
+		sType               = .ACTION_CREATE_INFO,
+		actionName          = xr.make_string("aim_pose", xr.MAX_ACTION_NAME_SIZE),
+		actionType          = .POSE_INPUT,
 		countSubactionPaths = 2,
-		subactionPaths = raw_data(ctx.hand_paths[:]),
+		subactionPaths      = raw_data(ctx.hand_paths[:]),
 		localizedActionName = xr.make_string("Aim Pose", xr.MAX_LOCALIZED_ACTION_NAME_SIZE),
 	}
 	result = xr.CreateAction(ctx.action_set, &pose_info, &ctx.aim_pose_action)
@@ -1144,11 +1437,11 @@ xr_setup_actions :: proc(ctx: ^Xr_Context) -> bool {
 	}
 
 	stick_info := xr.ActionCreateInfo {
-		sType = .ACTION_CREATE_INFO,
-		actionName = xr.make_string("left_stick", xr.MAX_ACTION_NAME_SIZE),
-		actionType = .VECTOR2F_INPUT,
+		sType               = .ACTION_CREATE_INFO,
+		actionName          = xr.make_string("left_stick", xr.MAX_ACTION_NAME_SIZE),
+		actionType          = .VECTOR2F_INPUT,
 		countSubactionPaths = 1,
-		subactionPaths = &ctx.hand_paths[0],
+		subactionPaths      = &ctx.hand_paths[0],
 		localizedActionName = xr.make_string("Left Stick", xr.MAX_LOCALIZED_ACTION_NAME_SIZE),
 	}
 	result = xr.CreateAction(ctx.action_set, &stick_info, &ctx.left_stick)
@@ -1157,13 +1450,18 @@ xr_setup_actions :: proc(ctx: ^Xr_Context) -> bool {
 		return false
 	}
 
-	xr_suggest_controller_bindings(ctx.instance, ctx.action_set, ctx.aim_pose_action, ctx.left_stick)
+	xr_suggest_controller_bindings(
+		ctx.instance,
+		ctx.action_set,
+		ctx.aim_pose_action,
+		ctx.left_stick,
+	)
 
 	sets := [?]xr.ActionSet{ctx.action_set}
 	attach_info := xr.SessionActionSetsAttachInfo {
-		sType = .SESSION_ACTION_SETS_ATTACH_INFO,
+		sType           = .SESSION_ACTION_SETS_ATTACH_INFO,
 		countActionSets = 1,
-		actionSets = raw_data(sets[:]),
+		actionSets      = raw_data(sets[:]),
 	}
 	result = xr.AttachSessionActionSets(ctx.session, &attach_info)
 	if result != .SUCCESS {
@@ -1173,9 +1471,9 @@ xr_setup_actions :: proc(ctx: ^Xr_Context) -> bool {
 
 	for path, i in ctx.hand_paths {
 		space_info := xr.ActionSpaceCreateInfo {
-			sType = .ACTION_SPACE_CREATE_INFO,
-			action = ctx.aim_pose_action,
-			subactionPath = path,
+			sType             = .ACTION_SPACE_CREATE_INFO,
+			action            = ctx.aim_pose_action,
+			subactionPath     = path,
 			poseInActionSpace = identity_pose(),
 		}
 		result = xr.CreateActionSpace(ctx.session, &space_info, &ctx.aim_spaces[i])
@@ -1186,7 +1484,12 @@ xr_setup_actions :: proc(ctx: ^Xr_Context) -> bool {
 	return true
 }
 
-xr_suggest_controller_bindings :: proc(instance: xr.Instance, action_set: xr.ActionSet, aim_pose: xr.Action, left_stick: xr.Action) {
+xr_suggest_controller_bindings :: proc(
+	instance: xr.Instance,
+	action_set: xr.ActionSet,
+	aim_pose: xr.Action,
+	left_stick: xr.Action,
+) {
 	profiles := [?]string {
 		"/interaction_profiles/oculus/touch_controller",
 		"/interaction_profiles/valve/index_controller",
@@ -1211,10 +1514,10 @@ xr_suggest_controller_bindings :: proc(instance: xr.Instance, action_set: xr.Act
 			{action = left_stick, binding = trackpad},
 		}
 		info := xr.InteractionProfileSuggestedBinding {
-			sType = .INTERACTION_PROFILE_SUGGESTED_BINDING,
-			interactionProfile = profile_path,
+			sType                  = .INTERACTION_PROFILE_SUGGESTED_BINDING,
+			interactionProfile     = profile_path,
 			countSuggestedBindings = u32(len(bindings)),
-			suggestedBindings = raw_data(bindings[:]),
+			suggestedBindings      = raw_data(bindings[:]),
 		}
 		result := xr.SuggestInteractionProfileBindings(instance, &info)
 		if result != .SUCCESS {
@@ -1231,8 +1534,14 @@ xr_sync_input :: proc(ctx: ^Xr_Context, display_time: xr.Time) -> bool {
 		return false
 	}
 
-	active_set := xr.ActiveActionSet{actionSet = ctx.action_set}
-	sync_info := xr.ActionsSyncInfo{sType = .ACTIONS_SYNC_INFO, countActiveActionSets = 1, activeActionSets = &active_set}
+	active_set := xr.ActiveActionSet {
+		actionSet = ctx.action_set,
+	}
+	sync_info := xr.ActionsSyncInfo {
+		sType                 = .ACTIONS_SYNC_INFO,
+		countActiveActionSets = 1,
+		activeActionSets      = &active_set,
+	}
 	result := xr.SyncActions(ctx.session, &sync_info)
 	if result != .SUCCESS {
 		if result != .SESSION_NOT_FOCUSED {
@@ -1243,27 +1552,43 @@ xr_sync_input :: proc(ctx: ^Xr_Context, display_time: xr.Time) -> bool {
 		return false
 	}
 
-	stick_state := xr.ActionStateVector2f{sType = .ACTION_STATE_VECTOR2F}
+	stick_state := xr.ActionStateVector2f {
+		sType = .ACTION_STATE_VECTOR2F,
+	}
 	xr.GetActionStateVector2f(
 		ctx.session,
-		&xr.ActionStateGetInfo{sType = .ACTION_STATE_GET_INFO, action = ctx.left_stick, subactionPath = ctx.hand_paths[0]},
+		&xr.ActionStateGetInfo {
+			sType = .ACTION_STATE_GET_INFO,
+			action = ctx.left_stick,
+			subactionPath = ctx.hand_paths[0],
+		},
 		&stick_state,
 	)
-	ctx.left_stick_value = {stick_state.currentState.x, stick_state.currentState.y} if bool(stick_state.isActive) else {}
+	ctx.left_stick_value =
+		{stick_state.currentState.x, stick_state.currentState.y} if bool(stick_state.isActive) else {}
 
 	for path, i in ctx.hand_paths {
-		pose_state := xr.ActionStatePose{sType = .ACTION_STATE_POSE}
+		pose_state := xr.ActionStatePose {
+			sType = .ACTION_STATE_POSE,
+		}
 		xr.GetActionStatePose(
 			ctx.session,
-			&xr.ActionStateGetInfo{sType = .ACTION_STATE_GET_INFO, action = ctx.aim_pose_action, subactionPath = path},
+			&xr.ActionStateGetInfo {
+				sType = .ACTION_STATE_GET_INFO,
+				action = ctx.aim_pose_action,
+				subactionPath = path,
+			},
 			&pose_state,
 		)
 		ctx.hand_active[i] = false
 		if !bool(pose_state.isActive) || ctx.aim_spaces[i] == {} do continue
 
-		location := xr.SpaceLocation{sType = .SPACE_LOCATION}
+		location := xr.SpaceLocation {
+			sType = .SPACE_LOCATION,
+		}
 		loc_result := xr.LocateSpace(ctx.aim_spaces[i], ctx.app_space, display_time, &location)
-		valid := loc_result == .SUCCESS &&
+		valid :=
+			loc_result == .SUCCESS &&
 			.ORIENTATION_VALID in location.locationFlags &&
 			.POSITION_VALID in location.locationFlags
 		if valid {
@@ -1284,7 +1609,12 @@ xr_wrap_swapchain_images :: proc(ctx: ^Xr_Context) -> bool {
 
 	ctx.swapchain_images = make([]xr.SwapchainImageVulkanKHR, image_count)
 	for &image in ctx.swapchain_images do image.sType = .SWAPCHAIN_IMAGE_VULKAN_KHR
-	result = xr.EnumerateSwapchainImages(ctx.swapchain, image_count, &image_count, cast(^xr.SwapchainImageBaseHeader)raw_data(ctx.swapchain_images))
+	result = xr.EnumerateSwapchainImages(
+		ctx.swapchain,
+		image_count,
+		&image_count,
+		cast(^xr.SwapchainImageBaseHeader)raw_data(ctx.swapchain_images),
+	)
 	if result != .SUCCESS {
 		log.errorf("xrEnumerateSwapchainImages failed: %v", result)
 		return false
@@ -1296,7 +1626,11 @@ xr_wrap_swapchain_images :: proc(ctx: ^Xr_Context) -> bool {
 			image.image,
 			{
 				type = .D2,
-				dimensions = {ctx.config_views[0].recommendedImageRectWidth, ctx.config_views[0].recommendedImageRectHeight, 1},
+				dimensions = {
+					ctx.config_views[0].recommendedImageRectWidth,
+					ctx.config_views[0].recommendedImageRectHeight,
+					1,
+				},
 				layer_count = u32(len(ctx.config_views)),
 				sample_count = ctx.config_views[0].recommendedSwapchainSampleCount,
 				format = ctx.color_format,
@@ -1323,7 +1657,10 @@ choose_swapchain_format :: proc(session: xr.Session) -> (vk.Format, gpu.Texture_
 		return {}, {}, false
 	}
 
-	candidates := []struct {vk: vk.Format, gpu: gpu.Texture_Format} {
+	candidates := []struct {
+		vk:  vk.Format,
+		gpu: gpu.Texture_Format,
+	} {
 		{vk = .R8G8B8A8_SRGB, gpu = .RGBA8_SRGB},
 		{vk = .R8G8B8A8_UNORM, gpu = .RGBA8_Unorm},
 		{vk = .B8G8R8A8_UNORM, gpu = .BGRA8_Unorm},
@@ -1345,14 +1682,23 @@ render_xr_frame :: proc(
 	frame_state: xr.FrameState,
 ) -> bool {
 	locate_info := xr.ViewLocateInfo {
-		sType = .VIEW_LOCATE_INFO,
+		sType                 = .VIEW_LOCATE_INFO,
 		viewConfigurationType = .PRIMARY_STEREO,
-		displayTime = frame_state.predictedDisplayTime,
-		space = ctx.app_space,
+		displayTime           = frame_state.predictedDisplayTime,
+		space                 = ctx.app_space,
 	}
-	view_state := xr.ViewState{sType = .VIEW_STATE}
+	view_state := xr.ViewState {
+		sType = .VIEW_STATE,
+	}
 	view_count: u32
-	result := xr.LocateViews(ctx.session, &locate_info, &view_state, u32(len(ctx.views)), &view_count, raw_data(ctx.views))
+	result := xr.LocateViews(
+		ctx.session,
+		&locate_info,
+		&view_state,
+		u32(len(ctx.views)),
+		&view_count,
+		raw_data(ctx.views),
+	)
 	if result != .SUCCESS {
 		log.warnf("xrLocateViews failed: %v", result)
 		xr_end_frame_empty(ctx.session, frame_state.predictedDisplayTime)
@@ -1367,16 +1713,26 @@ render_xr_frame :: proc(
 	}
 
 	image_index: u32
-	result = xr.AcquireSwapchainImage(ctx.swapchain, &xr.SwapchainImageAcquireInfo{sType = .SWAPCHAIN_IMAGE_ACQUIRE_INFO}, &image_index)
+	result = xr.AcquireSwapchainImage(
+		ctx.swapchain,
+		&xr.SwapchainImageAcquireInfo{sType = .SWAPCHAIN_IMAGE_ACQUIRE_INFO},
+		&image_index,
+	)
 	if result != .SUCCESS {
 		log.warnf("xrAcquireSwapchainImage failed: %v", result)
 		xr_end_frame_empty(ctx.session, frame_state.predictedDisplayTime)
 		return false
 	}
-	result = xr.WaitSwapchainImage(ctx.swapchain, &xr.SwapchainImageWaitInfo{sType = .SWAPCHAIN_IMAGE_WAIT_INFO, timeout = max(i64)})
+	result = xr.WaitSwapchainImage(
+		ctx.swapchain,
+		&xr.SwapchainImageWaitInfo{sType = .SWAPCHAIN_IMAGE_WAIT_INFO, timeout = max(i64)},
+	)
 	if result != .SUCCESS {
 		log.warnf("xrWaitSwapchainImage failed: %v", result)
-		xr.ReleaseSwapchainImage(ctx.swapchain, &xr.SwapchainImageReleaseInfo{sType = .SWAPCHAIN_IMAGE_RELEASE_INFO})
+		xr.ReleaseSwapchainImage(
+			ctx.swapchain,
+			&xr.SwapchainImageReleaseInfo{sType = .SWAPCHAIN_IMAGE_RELEASE_INFO},
+		)
 		xr_end_frame_empty(ctx.session, frame_state.predictedDisplayTime)
 		return false
 	}
@@ -1391,11 +1747,13 @@ render_xr_frame :: proc(
 		gpu.cmd_begin_render_pass(
 			cmd_buf,
 			{
-				color_attachments = {{
-					texture = ctx.textures[image_index],
-					view = {base_layer = u16(eye), layer_count = 1},
-					clear_color = {0.025, 0.028, 0.032, 1.0},
-				}},
+				color_attachments = {
+					{
+						texture = ctx.textures[image_index],
+						view = {base_layer = u16(eye), layer_count = 1},
+						clear_color = {0.025, 0.028, 0.032, 1.0},
+					},
+				},
 				depth_attachment = gpu.Render_Attachment {
 					texture = ctx.depth_texture,
 					view = {base_layer = u16(eye), layer_count = 1},
@@ -1404,7 +1762,10 @@ render_xr_frame :: proc(
 			},
 		)
 
-		world_to_view := xr_world_to_view(ctx.views[eye].pose, walker.xr_origin + ctx.tracking_offset)
+		world_to_view := xr_world_to_view(
+			ctx.views[eye].pose,
+			walker.xr_origin + ctx.tracking_offset,
+		)
 		view_to_proj := fov_to_projection(ctx.views[eye].fov)
 		camera_pos := walker.xr_origin + ctx.tracking_offset + pose_position(ctx.views[eye].pose)
 		draw_sky(cmd_buf, frame_arena, gpu_ctx, world_to_view, view_to_proj)
@@ -1416,14 +1777,24 @@ render_xr_frame :: proc(
 
 	if mirror_ok {
 		gpu.cmd_barrier(cmd_buf, .All, .All, {})
-		gpu.cmd_blit_texture(cmd_buf, mirror_texture, {}, ctx.textures[image_index], {base_layer = 0, layer_count = 1}, .Linear)
+		gpu.cmd_blit_texture(
+			cmd_buf,
+			mirror_texture,
+			{},
+			ctx.textures[image_index],
+			{base_layer = 0, layer_count = 1},
+			.Linear,
+		)
 	}
 
 	gpu.cmd_add_signal_semaphore(cmd_buf, gpu_ctx.frame_sem, gpu_ctx.next_frame)
 	gpu.queue_submit(.Main, {cmd_buf})
 	gpu.semaphore_wait(gpu_ctx.frame_sem, gpu_ctx.next_frame)
 
-	result = xr.ReleaseSwapchainImage(ctx.swapchain, &xr.SwapchainImageReleaseInfo{sType = .SWAPCHAIN_IMAGE_RELEASE_INFO})
+	result = xr.ReleaseSwapchainImage(
+		ctx.swapchain,
+		&xr.SwapchainImageReleaseInfo{sType = .SWAPCHAIN_IMAGE_RELEASE_INFO},
+	)
 	if result != .SUCCESS {
 		log.warnf("xrReleaseSwapchainImage failed: %v", result)
 		xr_end_frame_empty(ctx.session, frame_state.predictedDisplayTime)
@@ -1450,18 +1821,18 @@ render_xr_frame :: proc(
 	}
 
 	projection_layer := xr.CompositionLayerProjection {
-		sType = .COMPOSITION_LAYER_PROJECTION,
-		space = ctx.app_space,
+		sType     = .COMPOSITION_LAYER_PROJECTION,
+		space     = ctx.app_space,
 		viewCount = view_count,
-		views = raw_data(ctx.projection_views),
+		views     = raw_data(ctx.projection_views),
 	}
 	layer := cast(^xr.CompositionLayerBaseHeader)&projection_layer
 	end_info := xr.FrameEndInfo {
-		sType = .FRAME_END_INFO,
-		displayTime = frame_state.predictedDisplayTime,
+		sType                = .FRAME_END_INFO,
+		displayTime          = frame_state.predictedDisplayTime,
 		environmentBlendMode = .OPAQUE,
-		layerCount = 1,
-		layers = &layer,
+		layerCount           = 1,
+		layers               = &layer,
 	}
 	result = xr.EndFrame(ctx.session, &end_info)
 	if result != .SUCCESS {
@@ -1485,8 +1856,13 @@ update_xr_teleport :: proc(walker: ^Walker, ctx: ^Xr_Context) {
 		if linalg.length(aim_forward) < 0.001 do aim_forward = {0, 0, -1}
 		move_dir := linalg.normalize(aim_forward)
 		if linalg.length(move_dir) > 0.001 {
-			pitch_amount := clamp((abs(stick.y) - Teleport_Deadzone) / (1.0 - Teleport_Deadzone), 0.0, 1.0)
-			distance := Teleport_Min_Range + (Teleport_Max_Range - Teleport_Min_Range) * pitch_amount
+			pitch_amount := clamp(
+				(abs(stick.y) - Teleport_Deadzone) / (1.0 - Teleport_Deadzone),
+				0.0,
+				1.0,
+			)
+			distance :=
+				Teleport_Min_Range + (Teleport_Max_Range - Teleport_Min_Range) * pitch_amount
 			start := teleport_start_world(walker, ctx)
 			start.y = 0
 			walker.teleport_target = start + move_dir * distance
@@ -1497,7 +1873,8 @@ update_xr_teleport :: proc(walker: ^Walker, ctx: ^Xr_Context) {
 				head_offset.y = 0
 				head_floor = walker.xr_origin + head_offset
 			}
-			walker.teleport_player_target = walker.xr_origin + (walker.teleport_target - head_floor)
+			walker.teleport_player_target =
+				walker.xr_origin + (walker.teleport_target - head_floor)
 			walker.teleport_player_target.y = 0
 			walker.teleport_active = true
 		}
@@ -1533,7 +1910,9 @@ teleport_forward :: proc(ctx: ^Xr_Context) -> [3]f32 {
 acquire_window_mirror :: proc(window: ^sdl.Window, ctx: ^Gpu_Context) -> (gpu.Texture, bool) {
 	old_size := ctx.window_size
 	sdl.GetWindowSize(window, &ctx.window_size.x, &ctx.window_size.y)
-	if .MINIMIZED in sdl.GetWindowFlags(window) || ctx.window_size.x <= 0 || ctx.window_size.y <= 0 {
+	if .MINIMIZED in sdl.GetWindowFlags(window) ||
+	   ctx.window_size.x <= 0 ||
+	   ctx.window_size.y <= 0 {
 		return {}, false
 	}
 	if old_size != ctx.window_size {
@@ -1547,7 +1926,9 @@ acquire_window_mirror :: proc(window: ^sdl.Window, ctx: ^Gpu_Context) -> (gpu.Te
 render_window_frame :: proc(window: ^sdl.Window, ctx: ^Gpu_Context, walker: ^Walker) {
 	old_size := ctx.window_size
 	sdl.GetWindowSize(window, &ctx.window_size.x, &ctx.window_size.y)
-	if .MINIMIZED in sdl.GetWindowFlags(window) || ctx.window_size.x <= 0 || ctx.window_size.y <= 0 {
+	if .MINIMIZED in sdl.GetWindowFlags(window) ||
+	   ctx.window_size.x <= 0 ||
+	   ctx.window_size.y <= 0 {
 		sdl.Delay(16)
 		return
 	}
@@ -1567,7 +1948,13 @@ render_window_frame :: proc(window: ^sdl.Window, ctx: ^Gpu_Context, walker: ^Wal
 
 	world_to_view := window_world_to_view(walker)
 	aspect := f32(ctx.window_size.x) / f32(ctx.window_size.y)
-	view_to_proj := linalg.matrix4_perspective_f32(math.RAD_PER_DEG * 65.0, aspect, 0.05, 1000.0, false)
+	view_to_proj := linalg.matrix4_perspective_f32(
+		math.RAD_PER_DEG * 65.0,
+		aspect,
+		0.05,
+		1000.0,
+		false,
+	)
 
 	cmd_buf := gpu.commands_begin(.Main)
 	render_shadow_pass(cmd_buf, frame_arena, ctx)
@@ -1575,7 +1962,10 @@ render_window_frame :: proc(window: ^sdl.Window, ctx: ^Gpu_Context, walker: ^Wal
 		cmd_buf,
 		{
 			color_attachments = {{texture = swapchain, clear_color = {0.025, 0.028, 0.032, 1.0}}},
-			depth_attachment = gpu.Render_Attachment{texture = ctx.window_depth, clear_color = 1.0},
+			depth_attachment = gpu.Render_Attachment {
+				texture = ctx.window_depth,
+				clear_color = 1.0,
+			},
 		},
 	)
 	draw_sky(cmd_buf, frame_arena, ctx, world_to_view, view_to_proj)
@@ -1594,7 +1984,11 @@ update_window_walker :: proc(walker: ^Walker, input: ^Window_Input, dt: f32) {
 	if input.mouse_look {
 		walker.window_yaw_pitch.x += input.mouse_dx * mouse_sensitivity
 		walker.window_yaw_pitch.y += input.mouse_dy * mouse_sensitivity
-		walker.window_yaw_pitch.y = clamp(walker.window_yaw_pitch.y, math.RAD_PER_DEG * -85.0, math.RAD_PER_DEG * 85.0)
+		walker.window_yaw_pitch.y = clamp(
+			walker.window_yaw_pitch.y,
+			math.RAD_PER_DEG * -85.0,
+			math.RAD_PER_DEG * 85.0,
+		)
 	}
 
 	yaw := walker.window_yaw_pitch.x
@@ -1613,10 +2007,14 @@ update_window_walker :: proc(walker: ^Walker, input: ^Window_Input, dt: f32) {
 window_world_to_view :: proc(walker: ^Walker) -> linalg.Matrix4f32 {
 	yaw := walker.window_yaw_pitch.x
 	pitch := walker.window_yaw_pitch.y
-	rot := linalg.quaternion_angle_axis(yaw, [3]f32{0, 1, 0}) *
+	rot :=
+		linalg.quaternion_angle_axis(yaw, [3]f32{0, 1, 0}) *
 		linalg.quaternion_angle_axis(pitch, [3]f32{-1, 0, 0})
 	view_rot := linalg.normalize(linalg.quaternion_inverse(rot))
-	return linalg.matrix4_from_quaternion(view_rot) * linalg.matrix4_translate_f32(-walker.window_pos)
+	return(
+		linalg.matrix4_from_quaternion(view_rot) *
+		linalg.matrix4_translate_f32(-walker.window_pos) \
+	)
 }
 
 xr_world_to_view :: proc(pose: xr.Posef, origin: [3]f32) -> linalg.Matrix4f32 {
@@ -1624,7 +2022,11 @@ xr_world_to_view :: proc(pose: xr.Posef, origin: [3]f32) -> linalg.Matrix4f32 {
 }
 
 pose_to_view_matrix :: proc(pose: xr.Posef) -> linalg.Matrix4f32 {
-	pose_to_world := linalg.matrix4_from_trs_f32(pose_position(pose), pose_orientation(pose), {1, 1, 1})
+	pose_to_world := linalg.matrix4_from_trs_f32(
+		pose_position(pose),
+		pose_orientation(pose),
+		{1, 1, 1},
+	)
 	return linalg.inverse(pose_to_world)
 }
 
@@ -1633,7 +2035,14 @@ pose_position :: proc(pose: xr.Posef) -> [3]f32 {
 }
 
 pose_orientation :: proc(pose: xr.Posef) -> linalg.Quaternionf32 {
-	return transmute(linalg.Quaternionf32)[4]f32{pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w}
+	return(
+		transmute(linalg.Quaternionf32)[4]f32 {
+			pose.orientation.x,
+			pose.orientation.y,
+			pose.orientation.z,
+			pose.orientation.w,
+		} \
+	)
 }
 
 fov_to_projection :: proc(fov: xr.Fovf) -> linalg.Matrix4f32 {
@@ -1658,13 +2067,19 @@ fov_to_projection :: proc(fov: xr.Fovf) -> linalg.Matrix4f32 {
 }
 
 xr_end_frame_empty :: proc(session: xr.Session, display_time: xr.Time) {
-	end_info := xr.FrameEndInfo{sType = .FRAME_END_INFO, displayTime = display_time, environmentBlendMode = .OPAQUE}
+	end_info := xr.FrameEndInfo {
+		sType                = .FRAME_END_INFO,
+		displayTime          = display_time,
+		environmentBlendMode = .OPAQUE,
+	}
 	xr.EndFrame(session, &end_info)
 }
 
 poll_xr_events :: proc(ctx: ^Xr_Context) {
 	for {
-		event := xr.EventDataBuffer{sType = .EVENT_DATA_BUFFER}
+		event := xr.EventDataBuffer {
+			sType = .EVENT_DATA_BUFFER,
+		}
 		result := xr.PollEvent(ctx.instance, &event)
 		if result == .EVENT_UNAVAILABLE do break
 		xr_check(result, "xrPollEvent")
@@ -1676,7 +2091,10 @@ poll_xr_events :: proc(ctx: ^Xr_Context) {
 			log.infof("OpenXR session state: %v", state_event.state)
 			#partial switch state_event.state {
 			case .READY:
-				begin_info := xr.SessionBeginInfo{sType = .SESSION_BEGIN_INFO, primaryViewConfigurationType = .PRIMARY_STEREO}
+				begin_info := xr.SessionBeginInfo {
+					sType                        = .SESSION_BEGIN_INFO,
+					primaryViewConfigurationType = .PRIMARY_STEREO,
+				}
 				xr_check(xr.BeginSession(ctx.session, &begin_info), "xrBeginSession")
 				ctx.session_running = true
 			case .STOPPING:

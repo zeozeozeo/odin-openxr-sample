@@ -58,6 +58,9 @@ Gpu_Context :: struct {
 	sun_direction:    [3]f32,
 	sun_position:     [3]f32,
 	sun_angle:        f32,
+	scene_bounds_min: [3]f32,
+	scene_bounds_max: [3]f32,
+	scene_bounds_ok:  bool,
 	scene:            shared.Scene,
 	gltf_data:        ^gltf2.Data,
 	meshes:           [dynamic]Mesh_GPU,
@@ -117,15 +120,17 @@ Walker :: struct {
 }
 
 Mesh_GPU :: struct {
-	pos:     gpu.slice_t([4]f32),
-	normals: gpu.slice_t([4]f32),
-	uvs:     gpu.slice_t([2]f32),
-	indices: gpu.slice_t(u32),
+	pos:      gpu.slice_t([4]f32),
+	normals:  gpu.slice_t([4]f32),
+	tangents: gpu.slice_t([4]f32),
+	uvs:      gpu.slice_t([2]f32),
+	indices:  gpu.slice_t(u32),
 }
 
 Scene_Draw_Data :: struct #all_or_none {
 	positions:             rawptr,
 	normals:               rawptr,
+	tangents:              rawptr,
 	uvs:                   rawptr,
 	model_to_world:        [16]f32,
 	model_to_world_normal: [16]f32,
@@ -151,6 +156,9 @@ Scene_Frag_Data :: struct #all_or_none {
 	sun_direction:                  [4]f32,
 	light_extents:                  [4]f32,
 	render_mode:                    u32,
+	output_srgb:                    u32,
+	sky_texture:                    u32,
+	sky_sampler:                    u32,
 }
 
 Shadow_Draw_Data :: struct #all_or_none {
@@ -192,6 +200,7 @@ Sky_Draw_Data :: struct #all_or_none {
 Sky_Frag_Data :: struct #all_or_none {
 	sky_texture: u32,
 	sky_sampler: u32,
+	output_srgb: u32,
 }
 
 main :: proc() {
@@ -388,13 +397,13 @@ gpu_context_create_scene_resources :: proc(ctx: ^Gpu_Context) {
 			},
 		),
 	)
-	update_sun(ctx, 0)
-
 	upload_arena := gpu.arena_init()
 	defer gpu.arena_destroy(&upload_arena)
 
 	texture_infos: []shared.Gltf_Texture_Info
 	ctx.scene, texture_infos, ctx.gltf_data = load_sponza_scene(Sponza_Path)
+	ctx.scene_bounds_min, ctx.scene_bounds_max, ctx.scene_bounds_ok = compute_scene_bounds(ctx.scene)
+	update_sun(ctx, 0)
 
 	upload_cmd_buf := gpu.commands_begin(.Main)
 	default_base := create_solid_texture(&upload_arena, upload_cmd_buf, {210, 205, 190, 255})
@@ -513,6 +522,18 @@ load_sponza_scene :: proc(
 
 			pos4 := shared.to_vec4_array(positions, context.temp_allocator)
 			norm4 := shared.to_vec4_array(normals, context.temp_allocator)
+			tangent4 := make([][4]f32, len(positions), allocator = context.temp_allocator)
+			if tangent_accessor, ok := primitive.attributes["TANGENT"]; ok {
+				tangent_src := shared.buffer_slice_with_stride(
+					[4]f32,
+					data,
+					tangent_accessor,
+					context.temp_allocator,
+				)
+				copy(tangent4, tangent_src)
+			} else {
+				for &t in tangent4 do t = {1.0, 0.0, 0.0, 1.0}
+			}
 			uvs := make([][2]f32, len(positions), allocator = context.temp_allocator)
 			if uv_accessor, ok := primitive.attributes["TEXCOORD_0"]; ok {
 				uv_src := shared.buffer_slice_with_stride(
@@ -565,6 +586,7 @@ load_sponza_scene :: proc(
 				shared.Mesh {
 					pos = slice.clone_to_dynamic(pos4),
 					normals = slice.clone_to_dynamic(norm4),
+					tangents = slice.clone_to_dynamic(tangent4),
 					uvs = slice.clone_to_dynamic(uvs),
 					indices = slice.clone_to_dynamic(indices_u32[:]),
 				},
@@ -725,20 +747,24 @@ upload_mesh :: proc(
 ) -> Mesh_GPU {
 	positions_staging := gpu.arena_alloc(upload_arena, [4]f32, len(mesh.pos))
 	normals_staging := gpu.arena_alloc(upload_arena, [4]f32, len(mesh.normals))
+	tangents_staging := gpu.arena_alloc(upload_arena, [4]f32, len(mesh.tangents))
 	uvs_staging := gpu.arena_alloc(upload_arena, [2]f32, len(mesh.uvs))
 	indices_staging := gpu.arena_alloc(upload_arena, u32, len(mesh.indices))
 	copy(positions_staging.cpu, mesh.pos[:])
 	copy(normals_staging.cpu, mesh.normals[:])
+	copy(tangents_staging.cpu, mesh.tangents[:])
 	copy(uvs_staging.cpu, mesh.uvs[:])
 	copy(indices_staging.cpu, mesh.indices[:])
 
 	res: Mesh_GPU
 	res.pos = gpu.mem_alloc([4]f32, len(mesh.pos), gpu.Memory.GPU)
 	res.normals = gpu.mem_alloc([4]f32, len(mesh.normals), gpu.Memory.GPU)
+	res.tangents = gpu.mem_alloc([4]f32, len(mesh.tangents), gpu.Memory.GPU)
 	res.uvs = gpu.mem_alloc([2]f32, len(mesh.uvs), gpu.Memory.GPU)
 	res.indices = gpu.mem_alloc(u32, len(mesh.indices), gpu.Memory.GPU)
 	gpu.cmd_mem_copy(cmd_buf, res.pos, positions_staging)
 	gpu.cmd_mem_copy(cmd_buf, res.normals, normals_staging)
+	gpu.cmd_mem_copy(cmd_buf, res.tangents, tangents_staging)
 	gpu.cmd_mem_copy(cmd_buf, res.uvs, uvs_staging)
 	gpu.cmd_mem_copy(cmd_buf, res.indices, indices_staging)
 	return res
@@ -747,6 +773,7 @@ upload_mesh :: proc(
 mesh_destroy :: proc(mesh: ^Mesh_GPU) {
 	gpu.mem_free(mesh.pos)
 	gpu.mem_free(mesh.normals)
+	gpu.mem_free(mesh.tangents)
 	gpu.mem_free(mesh.uvs)
 	gpu.mem_free(mesh.indices)
 	mesh^ = {}
@@ -912,6 +939,7 @@ draw_sky :: proc(
 	ctx: ^Gpu_Context,
 	world_to_view: linalg.Matrix4f32,
 	view_to_proj: linalg.Matrix4f32,
+	output_srgb: bool,
 ) {
 	data := gpu.arena_alloc(frame_arena, Sky_Draw_Data)
 	data.cpu^ = {
@@ -924,6 +952,7 @@ draw_sky :: proc(
 	frag_data.cpu^ = {
 		sky_texture = ctx.sky_texture_id,
 		sky_sampler = ctx.sky_sampler,
+		output_srgb = 1 if output_srgb else 0,
 	}
 	gpu.cmd_set_shaders(cmd_buf, ctx.sky_vert, ctx.sky_frag)
 	gpu.cmd_set_desc_heap(cmd_buf, ctx.desc_pool)
@@ -947,6 +976,7 @@ draw_scene :: proc(
 	world_to_view: linalg.Matrix4f32,
 	view_to_proj: linalg.Matrix4f32,
 	camera_pos: [3]f32,
+	output_srgb: bool,
 ) {
 	gpu.cmd_set_shaders(cmd_buf, ctx.scene_vert, ctx.scene_frag)
 	gpu.cmd_set_raster_state(cmd_buf, {topology = .Triangle_List, cull_mode = .None})
@@ -959,6 +989,7 @@ draw_scene :: proc(
 		data.cpu^ = {
 			positions             = mesh.pos.gpu.ptr,
 			normals               = mesh.normals.gpu.ptr,
+			tangents              = mesh.tangents.gpu.ptr,
 			uvs                   = mesh.uvs.gpu.ptr,
 			model_to_world        = intr.matrix_flatten(instance.transform),
 			model_to_world_normal = intr.matrix_flatten(
@@ -1001,9 +1032,16 @@ draw_scene :: proc(
 				ctx.light_projection.far,
 			},
 			render_mode                    = 1 if Fullbright_Debug else 0,
+			output_srgb                    = 1 if output_srgb else 0,
+			sky_texture                    = ctx.sky_texture_id,
+			sky_sampler                    = ctx.sky_sampler,
 		}
 		gpu.cmd_draw_indexed(cmd_buf, data, frag_data, mesh.indices)
 	}
+}
+
+is_srgb_format :: proc(format: gpu.Texture_Format) -> bool {
+	return format == .RGBA8_SRGB
 }
 
 render_shadow_pass :: proc(
@@ -1055,10 +1093,10 @@ update_sun :: proc(ctx: ^Gpu_Context, dt: f32) {
 				math.sin(ctx.sun_angle) * Sun_Orbit_Radius,
 			}
 	ctx.sun_direction = linalg.normalize(Sun_Target - ctx.sun_position)
-	ctx.light_projection = make_sun_projection(ctx.sun_position, ctx.sun_direction)
+	ctx.light_projection = make_sun_projection(ctx.sun_position, ctx.sun_direction, ctx.scene_bounds_min, ctx.scene_bounds_max, ctx.scene_bounds_ok)
 }
 
-make_sun_projection :: proc(sun_pos, sun_dir: [3]f32) -> Light_Projection {
+make_sun_projection :: proc(sun_pos, sun_dir, scene_min, scene_max: [3]f32, has_scene_bounds: bool) -> Light_Projection {
 	forward := linalg.normalize(sun_dir)
 	world_up := [3]f32{0, 1, 0}
 	right := linalg.cross(forward, world_up)
@@ -1068,15 +1106,89 @@ make_sun_projection :: proc(sun_pos, sun_dir: [3]f32) -> Light_Projection {
 		right = linalg.normalize(right)
 	}
 	up := linalg.normalize(linalg.cross(right, forward))
+	if !has_scene_bounds {
+		return {
+			origin = sun_pos,
+			right = right,
+			up = up,
+			forward = forward,
+			width = 22.0,
+			height = 14.0,
+			near = 0.05,
+			far = 42.0,
+		}
+	}
+
+	corners := [?][3]f32 {
+		{scene_min.x, scene_min.y, scene_min.z},
+		{scene_max.x, scene_min.y, scene_min.z},
+		{scene_min.x, scene_max.y, scene_min.z},
+		{scene_max.x, scene_max.y, scene_min.z},
+		{scene_min.x, scene_min.y, scene_max.z},
+		{scene_max.x, scene_min.y, scene_max.z},
+		{scene_min.x, scene_max.y, scene_max.z},
+		{scene_max.x, scene_max.y, scene_max.z},
+	}
+
+	min_x, max_x := f32(max(f32)), -f32(max(f32))
+	min_y, max_y := f32(max(f32)), -f32(max(f32))
+	min_z, max_z := f32(max(f32)), -f32(max(f32))
+	for corner in corners {
+		x := linalg.dot(corner, right)
+		y := linalg.dot(corner, up)
+		z := linalg.dot(corner, forward)
+		min_x = min(min_x, x)
+		max_x = max(max_x, x)
+		min_y = min(min_y, y)
+		max_y = max(max_y, y)
+		min_z = min(min_z, z)
+		max_z = max(max_z, z)
+	}
+
+	margin_xy: f32 = 1.5
+	margin_z: f32 = 6.0
+	center_x := (min_x + max_x) * 0.5
+	center_y := (min_y + max_y) * 0.5
+	center_z := min_z - margin_z
+	origin := right * center_x + up * center_y + forward * center_z
 	return {
-		origin = sun_pos,
+		origin = origin,
 		right = right,
 		up = up,
 		forward = forward,
-		width = 22.0,
-		height = 14.0,
-		near = 0.05,
-		far = 42.0,
+		width = max(1.0, max_x - min_x + margin_xy * 2.0),
+		height = max(1.0, max_y - min_y + margin_xy * 2.0),
+		near = 0.0,
+		far = max(1.0, max_z - min_z + margin_z * 2.0),
+	}
+}
+
+compute_scene_bounds :: proc(scene: shared.Scene) -> (bounds_min, bounds_max: [3]f32, ok: bool) {
+	bounds_min = {f32(max(f32)), f32(max(f32)), f32(max(f32))}
+	bounds_max = {-f32(max(f32)), -f32(max(f32)), -f32(max(f32))}
+
+	for instance in scene.instances {
+		mesh := scene.meshes[instance.mesh_idx]
+		for pos in mesh.pos {
+			world := transform_point(instance.transform, pos)
+			bounds_min.x = min(bounds_min.x, world.x)
+			bounds_min.y = min(bounds_min.y, world.y)
+			bounds_min.z = min(bounds_min.z, world.z)
+			bounds_max.x = max(bounds_max.x, world.x)
+			bounds_max.y = max(bounds_max.y, world.y)
+			bounds_max.z = max(bounds_max.z, world.z)
+			ok = true
+		}
+	}
+
+	return
+}
+
+transform_point :: proc(m: matrix[4, 4]f32, p: [4]f32) -> [3]f32 {
+	return {
+		m[0, 0] * p.x + m[0, 1] * p.y + m[0, 2] * p.z + m[0, 3] * p.w,
+		m[1, 0] * p.x + m[1, 1] * p.y + m[1, 2] * p.z + m[1, 3] * p.w,
+		m[2, 0] * p.x + m[2, 1] * p.y + m[2, 2] * p.z + m[2, 3] * p.w,
 	}
 }
 
@@ -1768,9 +1880,10 @@ render_xr_frame :: proc(
 		)
 		view_to_proj := fov_to_projection(ctx.views[eye].fov)
 		camera_pos := walker.xr_origin + ctx.tracking_offset + pose_position(ctx.views[eye].pose)
-		draw_sky(cmd_buf, frame_arena, gpu_ctx, world_to_view, view_to_proj)
+		output_srgb := is_srgb_format(ctx.color_format)
+		draw_sky(cmd_buf, frame_arena, gpu_ctx, world_to_view, view_to_proj, output_srgb)
 		gpu.cmd_set_depth_state(cmd_buf, {mode = {.Read, .Write}, compare = .Less})
-		draw_scene(cmd_buf, frame_arena, gpu_ctx, world_to_view, view_to_proj, camera_pos)
+		draw_scene(cmd_buf, frame_arena, gpu_ctx, world_to_view, view_to_proj, camera_pos, output_srgb)
 		render_helpers(cmd_buf, frame_arena, gpu_ctx, walker, ctx, world_to_view, view_to_proj)
 		gpu.cmd_end_render_pass(cmd_buf)
 	}
@@ -1968,9 +2081,9 @@ render_window_frame :: proc(window: ^sdl.Window, ctx: ^Gpu_Context, walker: ^Wal
 			},
 		},
 	)
-	draw_sky(cmd_buf, frame_arena, ctx, world_to_view, view_to_proj)
+	draw_sky(cmd_buf, frame_arena, ctx, world_to_view, view_to_proj, false)
 	gpu.cmd_set_depth_state(cmd_buf, {mode = {.Read, .Write}, compare = .Less})
-	draw_scene(cmd_buf, frame_arena, ctx, world_to_view, view_to_proj, walker.window_pos)
+	draw_scene(cmd_buf, frame_arena, ctx, world_to_view, view_to_proj, walker.window_pos, false)
 	gpu.cmd_end_render_pass(cmd_buf)
 	gpu.cmd_add_signal_semaphore(cmd_buf, ctx.frame_sem, ctx.next_frame)
 	gpu.queue_submit(.Main, {cmd_buf})
